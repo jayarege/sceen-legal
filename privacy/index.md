@@ -84,14 +84,17 @@ their job:
   perform in the App are routed through our server, which queries TMDB on
   your behalf. TMDB does not see your account.
 - **AI providers** — used by our server to generate AI movie and TV
-  recommendations. Requests do not include your email or username — only
-  an opaque user ID and the prompt context (your tier picks, recent
-  ratings, and the recommendation request). Our server tries providers in
-  cascade order until one succeeds: **Groq, NVIDIA, Cerebras, Cohere,
-  SambaNova, Google (Gemini), and OpenRouter**. A given request reaches
-  one of these; we do not broadcast the same request to all of them. Each
-  provider acts as a data processor under our instructions and does not
-  use your prompts to train their models.
+  recommendations. Requests do not include your email, username, or
+  contact info — only an opaque user ID and the prompt context (your
+  tier picks, recent ratings, and the recommendation request). Our
+  server tries providers in cascade order until one succeeds: **Groq,
+  NVIDIA, Cerebras, Cohere, SambaNova, Google (Gemini), and OpenRouter**.
+  A given request reaches one of these; we do not broadcast the same
+  request to all of them. Whether a provider uses your prompts to
+  improve their service or train their models is governed by that
+  provider's own terms — we encourage you to review them. We do not
+  share data with these providers beyond what is needed to generate a
+  recommendation.
 - **Apple / Google** — sign-in providers, if you choose them.
 - **Expo Push Notifications** — delivers push notifications to your device.
 - **RevenueCat** — manages subscription purchases (only used if you subscribe).
