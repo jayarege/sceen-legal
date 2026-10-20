@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Connect Sceen</title>
+  <!--
+    Sceen OAuth consent page (SPIKE BUILD).
+
+    Supabase's OAuth 2.1 server redirects here with ?authorization_id=…
+    after an MCP client (Claude, ChatGPT) starts the connect flow. This page:
+      1. makes sure the person is signed in to their Sceen account,
+      2. shows what the connector will be able to read,
+      3. calls approveAuthorization / denyAuthorization and follows the
+         redirect_url Supabase returns.
+
+    It MUST be served at exactly  <Supabase Site URL> + /oauth/consent  — the
+    Authorization Path configured in Authentication → OAuth Server.
+
+    Uses the project's publishable key (not the legacy anon JWT) so it keeps
+    working after the legacy JWT secret is eventually retired.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+  <style>
+    :root { color-scheme: light dark; --fg: #111; --bg: #fff; --muted: #666; --card: #f5f5f7; --accent: #6c3cff; --danger: #c0392b; }
+    @media (prefers-color-scheme: dark) { :root { --fg: #f2f2f2; --bg: #0f0f12; --muted: #a0a0a8; --card: #1b1b21; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+    main { max-width: 440px; margin: 0 auto; padding: 32px 16px 48px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .card { background: var(--card); border-radius: 12px; padding: 16px; margin: 16px 0; }
+    ul { padding-left: 20px; margin: 8px 0; }
+    label { display: block; font-size: 14px; margin: 12px 0 4px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #8884; background: var(--bg); color: var(--fg); font-size: 16px; }
+    button { width: 100%; padding: 12px; border: 0; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+    .primary { background: var(--accent); color: #fff; }
+    .secondary { background: transparent; color: var(--fg); border: 1px solid #8886; }
+    .error { color: var(--danger); font-size: 14px; margin-top: 8px; min-height: 1.2em; }
+    .hidden { display: none; }
+    code { font-size: 13px; word-break: break-all; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Connect Sceen</h1>
+  <p class="muted" id="subtitle">Checking…</p>
+
+  <!-- State: error -->
+  <section id="state-error" class="hidden">
+    <div class="card"><p class="error" id="error-text"></p></div>
+  </section>
+
+  <!-- State: sign in -->
+  <section id="state-login" class="hidden">
+    <p>Sign in to your Sceen account to continue.</p>
+    <form id="login-form">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" required />
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required />
+      <button class="primary" type="submit">Sign in</button>
+      <p class="error" id="login-error"></p>
+    </form>
+    <button class="secondary" id="google-btn" type="button">Continue with Google</button>
+    <p class="muted">Apple sign-in isn't available on the web yet. If you signed up with Apple, set a password in the app first (Profile → Settings).</p>
+  </section>
+
+  <!-- State: consent -->
+  <section id="state-consent" class="hidden">
+    <div class="card">
+      <p><strong id="client-name">An app</strong> wants to connect to your Sceen account.</p>
+      <p class="muted">Signed in as <span id="who"></span> · <a href="#" id="signout">not you?</a></p>
+    </div>
+    <p>If you approve, it will be able to:</p>
+    <ul>
+      <li>See the movies and shows you've rated, and your scores</li>
+      <li>See your watchlist and your "not interested" list</li>
+      <li>See which streaming services you've selected</li>
+    </ul>
+    <p class="muted">It will <strong>not</strong> see your email, birth year, or other people's ratings. You can disconnect at any time from the app you're connecting.</p>
+    <p class="muted">Returns to: <code id="redirect-uri"></code></p>
+    <button class="primary" id="approve">Approve</button>
+    <button class="secondary" id="deny">Deny</button>
+    <p class="error" id="consent-error"></p>
+  </section>
+</main>
+
+<script>
+(async () => {
+  // --- Config ---------------------------------------------------------------
+  const SUPABASE_URL = 'https://hzzazclrpmyeastrleav.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Yhx72kkGngP0LbCKqDXyRw_n8pDwUFE';
+
+  const $ = (id) => document.getElementById(id);
+  const show = (id) => {
+    for (const s of ['state-error', 'state-login', 'state-consent']) $(s).classList.add('hidden');
+    $(id).classList.remove('hidden');
+  };
+  const fail = (msg) => { $('subtitle').textContent = ''; $('error-text').textContent = msg; show('state-error'); };
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+  const params = new URLSearchParams(window.location.search);
+  const authorizationId = params.get('authorization_id');
+  if (!authorizationId) {
+    return fail('This page is only used when connecting Sceen to another app. Nothing to approve.');
+  }
+
+  // --- Sign-in --------------------------------------------------------------
+  async function currentUser() {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user ?? null;
+  }
+
+  $('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('login-error').textContent = '';
+    const { error } = await supabase.auth.signInWithPassword({
+      email: $('email').value.trim(),
+      password: $('password').value,
+    });
+    if (error) { $('login-error').textContent = error.message; return; }
+    await route();
+  });
+
+  $('google-btn').addEventListener('click', async () => {
+    // Comes back to this exact URL (authorization_id preserved). The page URL
+    // must be in Authentication → URL Configuration → Redirect URLs.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href },
+    });
+    if (error) $('login-error').textContent = error.message;
+  });
+
+  $('signout').addEventListener('click', async (e) => {
+    e.preventDefault();
+    await supabase.auth.signOut();
+    await route();
+  });
+
+  // --- Consent --------------------------------------------------------------
+  async function route() {
+    const user = await currentUser();
+    if (!user) {
+      $('subtitle').textContent = '';
+      return show('state-login');
+    }
+
+    // Minors: do not connect a 13–17 account to a third-party AI.
+    const { data: profile } = await supabase
+      .from('users').select('age_bracket').eq('id', user.id).maybeSingle();
+    if (profile?.age_bracket === '13-17') {
+      return fail('Connecting Sceen to other apps is only available for users 18 and older.');
+    }
+
+    const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+    if (error) return fail('Could not load this connection request: ' + error.message);
+
+    // Already granted for this client → Supabase hands back a redirect straight away.
+    if (data && !('authorization_id' in data) && data.redirect_url) {
+      window.location.href = data.redirect_url;
+      return;
+    }
+
+    $('subtitle').textContent = '';
+    $('client-name').textContent = data?.client?.name || 'An app';
+    $('who').textContent = user.email || user.id;
+    $('redirect-uri').textContent = data?.redirect_uri || '';
+    show('state-consent');
+  }
+
+  $('approve').addEventListener('click', async () => {
+    $('consent-error').textContent = '';
+    const { data, error } = await supabase.auth.oauth.approveAuthorization(authorizationId);
+    if (error) { $('consent-error').textContent = error.message; return; }
+    window.location.href = data.redirect_url;
+  });
+
+  $('deny').addEventListener('click', async () => {
+    $('consent-error').textContent = '';
+    const { data, error } = await supabase.auth.oauth.denyAuthorization(authorizationId);
+    if (error) { $('consent-error').textContent = error.message; return; }
+    window.location.href = data.redirect_url;
+  });
+
+  await route();
+})();
+</script>
+</body>
+</html>
