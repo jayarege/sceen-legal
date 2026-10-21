@@ -78,9 +78,12 @@
       <li>See the movies and shows you've rated, and your scores</li>
       <li>See your watchlist and your "not interested" list</li>
       <li>See which streaming services you've selected</li>
+      <li>See your age bracket and a summary of your taste (genres, decades)</li>
     </ul>
-    <p class="muted">It will <strong>not</strong> see your email, birth year, or other people's ratings. You can disconnect at any time from the app you're connecting.</p>
-    <p class="muted">Returns to: <code id="redirect-uri"></code></p>
+    <p class="muted">Sceen's tools will <strong>not</strong> return your birth year, comments, or other people's data. To identify your account, the sign-in credential carries your email address and the name and picture from your sign-in provider.</p>
+    <p class="muted">You must be 18 or older. We log each request's tool name, time and size — never its content. The credential renews itself until you disconnect it in the app you're connecting.</p>
+    <p class="muted">We don't vet apps that ask to connect — approve only apps you trust. This one returns to: <code id="redirect-uri"></code></p>
+    <p class="muted"><a href="https://legal.getsceen.com/privacy">Privacy Policy</a> · <a href="https://legal.getsceen.com/terms">Terms of Service</a></p>
     <button class="primary" id="approve">Approve</button>
     <button class="secondary" id="deny">Deny</button>
     <p class="error" id="consent-error"></p>
@@ -149,11 +152,14 @@
       return show('state-login');
     }
 
-    // Minors: do not connect a 13–17 account to a third-party AI.
-    const { data: profile } = await supabase
+    // 18+ only. Fail CLOSED: an error, a missing row, or an unknown bracket all
+    // deny. (The server enforces the same rule on every request; this is the
+    // friendly early exit.)
+    const ADULT_BRACKETS = ['18-24', '25-34', '35-44', '45-54', '55+'];
+    const { data: profile, error: profileError } = await supabase
       .from('users').select('age_bracket').eq('id', user.id).maybeSingle();
-    if (profile?.age_bracket === '13-17') {
-      return fail('Connecting Sceen to other apps is only available for users 18 and older.');
+    if (profileError || !profile || !ADULT_BRACKETS.includes(profile.age_bracket)) {
+      return fail('Connecting Sceen to other apps is only available for users 18 and older with a birth year set in the app (Profile → Settings).');
     }
 
     const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
