@@ -4,7 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#080211" />
   <title>Connect Sceen</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
   <!--
     Sceen OAuth consent page (SPIKE BUILD).
 
@@ -20,74 +22,295 @@
 
     Uses the project's publishable key (not the legacy anon JWT) so it keeps
     working after the legacy JWT secret is eventually retired.
+
+    Visual design mirrors the app's AuthScreen (src/Screens/AuthScreen.js):
+    deep purple stage gradient, faint giant icon, wordmark, muted inputs that
+    lift on focus, gold gradient hero button.
   -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
   <style>
-    :root { color-scheme: light dark; --fg: #111; --bg: #fff; --muted: #666; --card: #f5f5f7; --accent: #6c3cff; --danger: #c0392b; }
-    @media (prefers-color-scheme: dark) { :root { --fg: #f2f2f2; --bg: #0f0f12; --muted: #a0a0a8; --card: #1b1b21; } }
+    :root {
+      color-scheme: dark;
+      --bg: #080211;
+      --bg-mid: #1A0D26;
+      --fg: #FFFFFF;
+      --fg-2: rgba(255, 255, 255, 0.85);
+      --muted: rgba(255, 255, 255, 0.5);
+      --faint: rgba(255, 255, 255, 0.32);
+      --line: rgba(255, 255, 255, 0.06);
+      --surface: rgba(255, 255, 255, 0.04);
+      --surface-hi: rgba(255, 255, 255, 0.08);
+      --gold-1: #E5C048;
+      --gold-2: #D4AF37;
+      --gold-3: #B8962E;
+      --gold-text: rgba(212, 175, 55, 0.85);
+      --danger: #FF8A80;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
-    main { max-width: 440px; margin: 0 auto; padding: 32px 16px 48px; }
-    h1 { font-size: 22px; margin: 0 0 4px; }
-    .muted { color: var(--muted); font-size: 14px; }
-    .card { background: var(--card); border-radius: 12px; padding: 16px; margin: 16px 0; }
-    ul { padding-left: 20px; margin: 8px 0; }
-    label { display: block; font-size: 14px; margin: 12px 0 4px; }
-    input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #8884; background: var(--bg); color: var(--fg); font-size: 16px; }
-    button { width: 100%; padding: 12px; border: 0; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
-    .primary { background: var(--accent); color: #fff; }
-    .secondary { background: transparent; color: var(--fg); border: 1px solid #8886; }
-    .error { color: var(--danger); font-size: 14px; margin-top: 8px; min-height: 1.2em; }
-    .hidden { display: none; }
-    code { font-size: 13px; word-break: break-all; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      color: var(--fg-2);
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-mid) 50%, var(--bg) 100%) fixed;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Giant faint icon behind everything — the app's "atmosphere" layer. */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -10vh -30vw auto;
+      height: 110vh;
+      background: url(/logo.png) center top / contain no-repeat;
+      opacity: 0.05;
+      pointer-events: none;
+    }
+    main {
+      position: relative;
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 56px 24px 40px;
+    }
+
+    /* --- Brand -------------------------------------------------------------- */
+    .brand { position: relative; text-align: center; margin-bottom: 36px; }
+    .brand::before {
+      /* Purple stage-light halo behind the wordmark. */
+      content: "";
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 320px; height: 140px;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(closest-side, rgba(155, 123, 176, 0.35), transparent);
+      filter: blur(20px);
+      pointer-events: none;
+    }
+    .brand img.wordmark { position: relative; width: 210px; max-width: 70%; height: auto; opacity: 0.9; }
+    .tagline { position: relative; margin: 10px 0 0; font-size: 13px; letter-spacing: 1px; color: var(--muted); }
+
+    h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; color: var(--fg); margin: 0 0 6px; text-align: center; }
+    .lead { text-align: center; color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .fine { color: var(--faint); font-size: 12px; line-height: 1.55; margin: 10px 0; }
+    a { color: var(--gold-text); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .hidden { display: none !important; }
+
+    /* --- Inputs: muted by default, lift on focus ---------------------------- */
+    .field { position: relative; margin-bottom: 12px; }
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    input {
+      width: 100%;
+      height: 52px;
+      padding: 0 16px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--fg-2);
+      font: inherit;
+      font-size: 16px;
+      outline: none;
+      transition: border-color .15s, background .15s, box-shadow .15s;
+    }
+    input::placeholder { color: rgba(255, 255, 255, 0.3); }
+    input:focus {
+      border-color: rgba(255, 255, 255, 0.15);
+      background: var(--surface-hi);
+      color: var(--fg);
+      box-shadow: 0 4px 12px rgba(100, 60, 140, 0.3);
+    }
+    input:focus::placeholder { color: rgba(255, 255, 255, 0.5); }
+    #password { padding-right: 52px; }
+    .eye {
+      position: absolute; right: 6px; top: 6px;
+      width: 40px; height: 40px;
+      display: grid; place-items: center;
+      border: 0; border-radius: 10px; background: transparent;
+      color: rgba(255, 255, 255, 0.45); cursor: pointer;
+    }
+    .eye:hover { color: rgba(255, 255, 255, 0.75); }
+    .eye svg { width: 22px; height: 22px; }
+
+    /* --- Buttons ------------------------------------------------------------ */
+    button { font: inherit; cursor: pointer; }
+    .hero {
+      width: 100%;
+      height: 56px;
+      margin-top: 8px;
+      border: 0;
+      border-radius: 16px;
+      background: linear-gradient(180deg, var(--gold-1), var(--gold-2) 50%, var(--gold-3));
+      color: #0A0A0F;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      box-shadow: 0 8px 24px rgba(212, 175, 55, 0.35);
+      transition: transform .1s, box-shadow .15s, filter .15s;
+    }
+    .hero:hover { filter: brightness(1.05); box-shadow: 0 10px 28px rgba(212, 175, 55, 0.45); }
+    .hero:active { transform: translateY(1px); }
+    .ghost {
+      width: 100%;
+      height: 52px;
+      margin-top: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 15px;
+      font-weight: 500;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+    .ghost:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.14); color: var(--fg); }
+    .ghost svg { width: 18px; height: 18px; }
+    button:disabled { opacity: 0.6; cursor: default; }
+    button:focus-visible, a:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 3px; }
+
+    .divider { display: flex; align-items: center; gap: 14px; margin: 22px 0 8px; color: rgba(255, 255, 255, 0.25); font-size: 11px; letter-spacing: 0.5px; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.06); }
+
+    .error { color: var(--danger); font-size: 13px; margin: 10px 0 0; min-height: 1.2em; text-align: center; }
+
+    /* --- Cards / consent ---------------------------------------------------- */
+    .card {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 20px;
+      margin: 0 0 16px;
+      backdrop-filter: blur(6px);
+    }
+    .pair { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 16px; }
+    .pair .icon {
+      width: 56px; height: 56px; border-radius: 14px;
+      display: grid; place-items: center;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--fg); font-size: 22px; font-weight: 700;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    }
+    .pair .icon img { width: 100%; height: 100%; object-fit: cover; }
+    .pair .link { color: rgba(255, 255, 255, 0.3); display: flex; gap: 4px; }
+    .pair .link i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+    .request { text-align: center; color: var(--fg); font-size: 17px; font-weight: 600; letter-spacing: -0.2px; margin: 0 0 6px; }
+    .who { text-align: center; margin: 0; }
+
+    .perms { list-style: none; padding: 0; margin: 4px 0 0; }
+    .perms li { display: flex; gap: 12px; align-items: flex-start; padding: 9px 0; color: var(--fg-2); font-size: 14px; }
+    .perms li + li { border-top: 1px solid rgba(255, 255, 255, 0.05); }
+    .perms svg { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--gold-2); }
+    .label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--faint); margin: 0 0 6px; }
+    code {
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: rgba(255, 255, 255, 0.75);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 6px; border-radius: 6px;
+      word-break: break-all;
+    }
+    .error-card { text-align: center; }
+    .error-card .error { margin: 0; min-height: 0; }
+
+    /* --- Loading ------------------------------------------------------------ */
+    .spinner {
+      width: 28px; height: 28px; margin: 8px auto 0;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--gold-2);
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer { text-align: center; margin-top: 28px; font-size: 11px; color: rgba(255, 255, 255, 0.25); }
+    footer a { color: rgba(255, 255, 255, 0.4); }
+
+    @media (max-height: 700px) { main { padding-top: 32px; } .brand { margin-bottom: 24px; } }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
 <body>
 <main>
-  <h1>Connect Sceen</h1>
-  <p class="muted" id="subtitle">Checking…</p>
+  <header class="brand">
+    <img class="wordmark" src="/wordmark.png" alt="Sceen" width="560" height="205" />
+    <p class="tagline">Your movies, ranked your way</p>
+  </header>
+
+  <!-- State: loading -->
+  <section id="state-loading">
+    <p class="lead">Checking…</p>
+    <div class="spinner" aria-hidden="true"></div>
+  </section>
 
   <!-- State: error -->
   <section id="state-error" class="hidden">
-    <div class="card"><p class="error" id="error-text"></p></div>
+    <h1>Connect Sceen</h1>
+    <div class="card error-card"><p class="error" id="error-text"></p></div>
   </section>
 
   <!-- State: sign in -->
   <section id="state-login" class="hidden">
-    <p>Sign in to your Sceen account to continue.</p>
+    <h1>Sign in to connect</h1>
+    <p class="lead">Use your Sceen account to continue.</p>
     <form id="login-form">
-      <label for="email">Email</label>
-      <input id="email" type="email" autocomplete="email" required />
-      <label for="password">Password</label>
-      <input id="password" type="password" autocomplete="current-password" required />
-      <button class="primary" type="submit">Sign in</button>
+      <div class="field">
+        <label class="sr" for="email">Email</label>
+        <input id="email" type="email" placeholder="Email" autocomplete="email" autocapitalize="none" required />
+      </div>
+      <div class="field">
+        <label class="sr" for="password">Password</label>
+        <input id="password" type="password" placeholder="Password" autocomplete="current-password" required />
+        <button class="eye" id="eye" type="button" aria-label="Show password" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <button class="hero" id="login-btn" type="submit">Sign In</button>
       <p class="error" id="login-error"></p>
     </form>
-    <button class="secondary" id="google-btn" type="button">Continue with Google</button>
-    <p class="muted">Apple sign-in isn't available on the web yet. If you signed up with Apple, set a password in the app first (Profile → Settings).</p>
+    <div class="divider">or continue with</div>
+    <button class="ghost" id="google-btn" type="button">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <p class="fine" style="text-align:center;margin-top:16px">Apple sign-in isn't available on the web yet. If you signed up with Apple, set a password in the app first (Profile → Settings).</p>
   </section>
 
   <!-- State: consent -->
   <section id="state-consent" class="hidden">
     <div class="card">
-      <p><strong id="client-name">An app</strong> wants to connect to your Sceen account.</p>
-      <p class="muted">Signed in as <span id="who"></span> · <a href="#" id="signout">not you?</a></p>
+      <div class="pair" aria-hidden="true">
+        <div class="icon" id="client-icon">?</div>
+        <div class="link"><i></i><i></i><i></i></div>
+        <div class="icon"><img src="/logo.png" alt="" /></div>
+      </div>
+      <p class="request"><span id="client-name">An app</span> wants to connect to your Sceen account</p>
+      <p class="muted who">Signed in as <span id="who"></span> · <a href="#" id="signout">not you?</a></p>
     </div>
-    <p>If you approve, it will be able to:</p>
-    <ul>
-      <li>See the movies and shows you've rated, and your scores</li>
-      <li>See your watchlist and your "not interested" list</li>
-      <li>See which streaming services you've selected</li>
-      <li>See your age bracket and a summary of your taste (genres, decades)</li>
-    </ul>
-    <p class="muted">Sceen's tools will <strong>not</strong> return your birth year, comments, or other people's data. To identify your account, the sign-in credential carries your email address and the name and picture from your sign-in provider.</p>
-    <p class="muted">You must be 18 or older. We log each request's tool name, time and size — never its content. The credential renews itself until you disconnect it in the app you're connecting.</p>
-    <p class="muted">We don't vet apps that ask to connect — approve only apps you trust. This one returns to: <code id="redirect-uri"></code></p>
-    <p class="muted"><a href="https://legal.getsceen.com/privacy">Privacy Policy</a> · <a href="https://legal.getsceen.com/terms">Terms of Service</a></p>
-    <button class="primary" id="approve">Approve</button>
-    <button class="secondary" id="deny">Deny</button>
+
+    <div class="card">
+      <p class="label">If you approve, it will be able to</p>
+      <ul class="perms">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>See the movies and shows you've rated, and your scores</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>See your watchlist and your "not interested" list</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>See which streaming services you've selected</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>See your age bracket and a summary of your taste (genres, decades)</li>
+      </ul>
+    </div>
+
+    <p class="fine">Sceen's tools will <strong>not</strong> return your birth year, comments, or other people's data. To identify your account, the sign-in credential carries your email address and the name and picture from your sign-in provider.</p>
+    <p class="fine">You must be 18 or older. We log each request's tool name, time and size — never its content. The credential renews itself until you disconnect it in the app you're connecting.</p>
+    <p class="fine">We don't vet apps that ask to connect — approve only apps you trust. This one returns to: <code id="redirect-uri"></code></p>
+
+    <button class="hero" id="approve">Approve</button>
+    <button class="ghost" id="deny">Deny</button>
     <p class="error" id="consent-error"></p>
   </section>
+
+  <footer>
+    <a href="https://legal.getsceen.com/privacy">Privacy Policy</a> · <a href="https://legal.getsceen.com/terms">Terms of Service</a>
+  </footer>
 </main>
 
 <script>
@@ -98,18 +321,33 @@
 
   const $ = (id) => document.getElementById(id);
   const show = (id) => {
-    for (const s of ['state-error', 'state-login', 'state-consent']) $(s).classList.add('hidden');
+    for (const s of ['state-loading', 'state-error', 'state-login', 'state-consent']) $(s).classList.add('hidden');
     $(id).classList.remove('hidden');
   };
-  const fail = (msg) => { $('subtitle').textContent = ''; $('error-text').textContent = msg; show('state-error'); };
+  const fail = (msg) => { $('error-text').textContent = msg; show('state-error'); };
+  // Disable a button while its request is in flight so a double-click can't double-submit.
+  const busy = async (btn, label, fn) => {
+    const text = btn.textContent;
+    btn.disabled = true; btn.textContent = label;
+    try { return await fn(); } finally { btn.disabled = false; btn.textContent = text; }
+  };
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  // Password show/hide, like the eye toggle in the app.
+  $('eye').addEventListener('click', () => {
+    const pw = $('password');
+    const visible = pw.type === 'text';
+    pw.type = visible ? 'password' : 'text';
+    $('eye').setAttribute('aria-pressed', String(!visible));
+    $('eye').setAttribute('aria-label', visible ? 'Show password' : 'Hide password');
+  });
 
   const params = new URLSearchParams(window.location.search);
   const authorizationId = params.get('authorization_id');
   if (!authorizationId) {
     return fail('This page is only used when connecting Sceen to another app. Nothing to approve.');
   }
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
   // --- Sign-in --------------------------------------------------------------
   async function currentUser() {
@@ -120,10 +358,10 @@
   $('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     $('login-error').textContent = '';
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await busy($('login-btn'), 'Signing in…', () => supabase.auth.signInWithPassword({
       email: $('email').value.trim(),
       password: $('password').value,
-    });
+    }));
     if (error) { $('login-error').textContent = error.message; return; }
     await route();
   });
@@ -148,7 +386,6 @@
   async function route() {
     const user = await currentUser();
     if (!user) {
-      $('subtitle').textContent = '';
       return show('state-login');
     }
 
@@ -171,8 +408,9 @@
       return;
     }
 
-    $('subtitle').textContent = '';
-    $('client-name').textContent = data?.client?.name || 'An app';
+    const clientName = data?.client?.name || 'An app';
+    $('client-name').textContent = clientName;
+    $('client-icon').textContent = clientName.trim().charAt(0).toUpperCase() || '?';
     $('who').textContent = user.email || user.id;
     $('redirect-uri').textContent = data?.redirect_uri || '';
     show('state-consent');
@@ -180,14 +418,14 @@
 
   $('approve').addEventListener('click', async () => {
     $('consent-error').textContent = '';
-    const { data, error } = await supabase.auth.oauth.approveAuthorization(authorizationId);
+    const { data, error } = await busy($('approve'), 'Approving…', () => supabase.auth.oauth.approveAuthorization(authorizationId));
     if (error) { $('consent-error').textContent = error.message; return; }
     window.location.href = data.redirect_url;
   });
 
   $('deny').addEventListener('click', async () => {
     $('consent-error').textContent = '';
-    const { data, error } = await supabase.auth.oauth.denyAuthorization(authorizationId);
+    const { data, error } = await busy($('deny'), 'Denying…', () => supabase.auth.oauth.denyAuthorization(authorizationId));
     if (error) { $('consent-error').textContent = error.message; return; }
     window.location.href = data.redirect_url;
   });
