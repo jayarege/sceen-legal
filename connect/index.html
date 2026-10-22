@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#080211" />
+  <meta name="description" content="How to connect your Sceen ratings, watchlist and not-interested list to Claude, ChatGPT, Grok or Gemini, or export them as a file." />
+  <title>Connect Sceen to your AI</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <!--
+    Sceen "Connect to your AI" how-to page, served at /connect/.
+
+    Plain HTML + inline CSS, no analytics, no external assets except /logo.png.
+    Visual language mirrors /oauth/consent: deep purple stage gradient, faint
+    giant icon behind the page, gold gradient buttons, system font.
+
+    Client steps were checked on 2026-10-22. Anything a vendor has not
+    confirmed is worded with "may" / "check" on purpose. Keep it that way.
+  -->
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080211;
+      --bg-mid: #1A0D26;
+      --fg: #FFFFFF;
+      --fg-2: rgba(255, 255, 255, 0.85);
+      --muted: rgba(255, 255, 255, 0.55);
+      --faint: rgba(255, 255, 255, 0.35);
+      --line: rgba(255, 255, 255, 0.07);
+      --surface: rgba(255, 255, 255, 0.04);
+      --surface-hi: rgba(255, 255, 255, 0.08);
+      --gold-1: #E5C048;
+      --gold-2: #D4AF37;
+      --gold-3: #B8962E;
+      --gold-text: rgba(212, 175, 55, 0.9);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 16px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      color: var(--fg-2);
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-mid) 40%, var(--bg) 100%) fixed;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      overflow-wrap: anywhere;
+    }
+    /* Giant faint icon behind everything, same as the consent page. */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -10vh -30vw auto;
+      height: 110vh;
+      background: url(/logo.png) center top / contain no-repeat;
+      opacity: 0.05;
+      pointer-events: none;
+    }
+    main { position: relative; max-width: 640px; margin: 0 auto; padding: 36px 16px 48px; }
+    @media (min-width: 760px) { main { padding: 56px 24px 64px; } }
+
+    /* --- Brand -------------------------------------------------------------- */
+    .brand { position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 28px; }
+    .brand::before {
+      content: "";
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 320px; height: 140px;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(closest-side, rgba(155, 123, 176, 0.35), transparent);
+      filter: blur(20px);
+      pointer-events: none;
+    }
+    .brand a { position: relative; display: flex; align-items: center; gap: 12px; color: var(--fg); text-decoration: none; }
+    .brand img { width: 44px; height: 44px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
+    .brand .name { font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+    h1 { font-size: 28px; line-height: 1.2; font-weight: 700; letter-spacing: -0.4px; color: var(--fg); margin: 0 0 12px; text-align: center; }
+    @media (min-width: 760px) { h1 { font-size: 34px; } }
+    .lead { text-align: center; color: var(--muted); margin: 0 auto 32px; max-width: 520px; }
+    h2 { font-size: 13px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--faint); margin: 32px 0 12px; }
+    h3 { font-size: 17px; font-weight: 600; color: var(--fg); margin: 0 0 6px; }
+    p { margin: 0 0 12px; }
+    p:last-child { margin-bottom: 0; }
+    a { color: var(--gold-text); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { color: var(--fg); font-weight: 600; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .fine { color: var(--faint); font-size: 13px; line-height: 1.5; }
+    kbd {
+      font: inherit; font-size: 0.95em;
+      color: var(--fg);
+      background: var(--surface-hi);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 6px;
+      white-space: nowrap;
+    }
+    code {
+      font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--fg);
+      word-break: break-all;
+    }
+
+    /* --- Cards -------------------------------------------------------------- */
+    .card {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 20px;
+      margin: 0 0 16px;
+      backdrop-filter: blur(6px);
+    }
+    .card.highlight { border-color: rgba(212, 175, 55, 0.35); box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.08), 0 10px 30px rgba(0, 0, 0, 0.25); }
+    .eyebrow { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-text); margin: 0 0 6px; }
+
+    /* --- Buttons ------------------------------------------------------------ */
+    button { font: inherit; cursor: pointer; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 44px;
+      padding: 0 18px;
+      border: 0;
+      border-radius: 12px;
+      background: linear-gradient(180deg, var(--gold-1), var(--gold-2) 50%, var(--gold-3));
+      color: #0A0A0F;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-decoration: none;
+      box-shadow: 0 6px 18px rgba(212, 175, 55, 0.3);
+      transition: transform .1s, box-shadow .15s, filter .15s;
+      white-space: nowrap;
+    }
+    .btn:hover { filter: brightness(1.05); text-decoration: none; box-shadow: 0 8px 24px rgba(212, 175, 55, 0.42); }
+    .btn:active { transform: translateY(1px); }
+    .btn.block { display: flex; width: 100%; min-height: 52px; font-size: 16px; }
+    .btn svg { width: 16px; height: 16px; flex: none; }
+    .ghost {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.03);
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+    .ghost:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.18); color: var(--fg); text-decoration: none; }
+    button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 3px; }
+
+    /* --- Server URL block --------------------------------------------------- */
+    .urlbox {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 12px 12px 14px;
+    }
+    .urlbox code { flex: 1 1 220px; user-select: all; -webkit-user-select: all; }
+    .urlbox .btn { flex: none; min-height: 40px; padding: 0 16px; font-size: 14px; }
+
+    /* --- Jump chips --------------------------------------------------------- */
+    .jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+    .jump a {
+      display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--fg-2); font-size: 14px; font-weight: 500;
+    }
+    .jump a:hover { background: var(--surface-hi); text-decoration: none; }
+
+    /* --- Client sections ---------------------------------------------------- */
+    details.client {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      margin: 0 0 14px;
+      scroll-margin-top: 16px;
+      backdrop-filter: blur(6px);
+    }
+    details.client[open] { border-color: rgba(255, 255, 255, 0.12); }
+    summary {
+      list-style: none;
+      display: flex; align-items: center; gap: 12px;
+      min-height: 60px;
+      padding: 12px 20px;
+      cursor: pointer;
+      border-radius: 20px;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary .mark {
+      flex: none; width: 36px; height: 36px; border-radius: 10px;
+      display: grid; place-items: center;
+      background: var(--surface-hi); border: 1px solid var(--line);
+      color: var(--fg); font-weight: 700; font-size: 16px;
+    }
+    summary .title { flex: 1; min-width: 0; }
+    summary .title b { display: block; color: var(--fg); font-size: 18px; font-weight: 600; }
+    summary .title small { display: block; color: var(--muted); font-size: 13px; }
+    summary .chev { flex: none; width: 20px; height: 20px; color: var(--faint); transition: transform .2s; }
+    details[open] summary .chev { transform: rotate(180deg); }
+    .body { padding: 0 20px 20px; }
+    .who {
+      font-size: 14px; color: var(--fg-2);
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 3px solid var(--gold-2);
+      border-radius: 0 10px 10px 0;
+      padding: 10px 14px;
+      margin: 0 0 16px;
+    }
+    .who .lbl { display: block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--faint); margin-bottom: 2px; }
+
+    ol.steps { list-style: none; counter-reset: step; padding: 0; margin: 0 0 16px; }
+    ol.steps li { counter-increment: step; position: relative; padding: 0 0 12px 40px; }
+    ol.steps li::before {
+      content: counter(step);
+      position: absolute; left: 0; top: 1px;
+      width: 26px; height: 26px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: linear-gradient(180deg, var(--gold-1), var(--gold-3));
+      color: #0A0A0F; font-size: 13px; font-weight: 700;
+    }
+    ol.steps li + li::after {
+      content: ""; position: absolute; left: 12.5px; top: -12px; height: 12px; width: 1px;
+      background: rgba(212, 175, 55, 0.25);
+    }
+    .note { font-size: 14px; color: var(--muted); margin: 0 0 16px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; }
+    .ask { margin: 0; padding: 12px 14px; border-radius: 12px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); }
+    .ask .lbl { display: block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+    .ask q { color: var(--fg); font-style: italic; quotes: "\201C" "\201D"; }
+
+    /* --- FAQ ---------------------------------------------------------------- */
+    .faq .q { padding: 16px 0; border-top: 1px solid var(--line); }
+    .faq .q:first-child { border-top: 0; padding-top: 4px; }
+    .faq .q:last-child { padding-bottom: 4px; }
+    .faq ul { margin: 6px 0 0; padding-left: 20px; }
+    .faq li { margin: 2px 0; }
+
+    footer { text-align: center; margin-top: 36px; font-size: 13px; color: var(--faint); line-height: 1.7; }
+    footer a { color: rgba(255, 255, 255, 0.5); }
+
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="brand">
+    <a href="/"><img src="/logo.png" alt="" width="512" height="512" /><span class="name">Sceen</span></a>
+  </header>
+
+  <h1>Connect Sceen to your AI</h1>
+  <p class="lead">Your ratings, watchlist and not-interested list, read by the AI you already pay for. It can only read, never change, your library. The live connector is for people 18 and older. Want the simplest route, or no AI subscription? Export a file instead.</p>
+
+  <!-- 1. No setup: export a file -->
+  <section class="card highlight" id="export" aria-labelledby="export-h">
+    <p class="eyebrow">No setup</p>
+    <h3 id="export-h">Export a file</h3>
+    <p>In the Sceen app, go to <kbd>Profile</kbd> &rsaquo; <kbd>Settings</kbd> &rsaquo; <kbd>Connect to AI</kbd> &rsaquo; <kbd>Export as .txt</kbd>. On Home, you can also tap <kbd>Export to AI</kbd> under <kbd>Get Personalized Picks</kbd> once you've rated a few titles.</p>
+    <p>Then upload or paste the file into any AI app. The file includes a suggested prompt, so you can start with that. It works on any plan, with any AI, and the AI only sees that snapshot.</p>
+  </section>
+
+  <!-- 2. Server URL -->
+  <section class="card" id="url" aria-labelledby="url-h">
+    <h3 id="url-h">Sceen server URL</h3>
+    <p class="muted">Paste this wherever an AI app asks for an MCP server URL. Each setup below uses it.</p>
+    <div class="urlbox">
+      <code id="mcp-url">https://hzzazclrpmyeastrleav.supabase.co/functions/v1/mcp</code>
+      <button class="btn" id="copy-url" type="button" aria-label="Copy the Sceen server URL">Copy</button>
+    </div>
+  </section>
+
+  <h2>Pick your AI</h2>
+  <nav class="jump" aria-label="Jump to an AI">
+    <a href="#claude">Claude</a>
+    <a href="#chatgpt">ChatGPT</a>
+    <a href="#grok">Grok</a>
+    <a href="#gemini">Gemini</a>
+  </nav>
+
+  <!-- 3a. Claude -->
+  <details class="client" id="claude" open>
+    <summary>
+      <span class="mark" aria-hidden="true">Cl</span>
+      <span class="title"><b>Claude</b><small>Every plan, including Free. One-click link.</small></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="body">
+      <p class="who"><span class="lbl">Who can use it</span>Everyone on claude.ai, including the Free plan. Free allows one custom connector, so Sceen will take that slot. On a Team or Enterprise plan, an owner adds it under <kbd>Organization settings</kbd> &rsaquo; <kbd>Connectors</kbd>; you then click <kbd>Connect</kbd>.</p>
+      <ol class="steps">
+        <li>Open the link below. It opens claude.ai with the name and server URL already filled in; sign in if asked, check the details and click <kbd>Add</kbd>.<br /><span class="muted">Or do it by hand on claude.ai or the Claude desktop app: <kbd>Customize</kbd> &rsaquo; <kbd>Connectors</kbd> &rsaquo; <kbd>Add</kbd> &rsaquo; <kbd>Add custom connector</kbd>, name it <strong>Sceen</strong>, paste the server URL and click <kbd>Add</kbd>. Leave any advanced or OAuth settings as they are.</span></li>
+        <li>Sign in to Sceen on the page that opens and tap <kbd>Approve</kbd>.</li>
+        <li>In a chat, click <kbd>+</kbd> at the message box, choose <kbd>Connectors</kbd> and make sure Sceen is on. Older versions call this menu <kbd>Search and tools</kbd>.</li>
+        <li>Ask away. The first time, Claude asks before using a Sceen tool; choose <kbd>Allow once</kbd> or <kbd>Always allow</kbd>.</li>
+      </ol>
+      <p class="note">Once added, Sceen also works in the Claude iPhone and Android apps and in Claude Code when you sign in with the same account. Set it up on the web or desktop first.</p>
+      <div class="actions">
+        <a class="btn" href="https://claude.ai/customize/connectors?modal=add-custom-connector&amp;connectorName=Sceen&amp;connectorUrl=https%3A%2F%2Fhzzazclrpmyeastrleav.supabase.co%2Ffunctions%2Fv1%2Fmcp" rel="noopener">Open Claude<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+      </div>
+      <p class="ask"><span class="lbl">What to ask</span><q>What should I watch tonight on the services I have?</q></p>
+    </div>
+  </details>
+
+  <!-- 3b. ChatGPT -->
+  <details class="client" id="chatgpt">
+    <summary>
+      <span class="mark" aria-hidden="true">Ch</span>
+      <span class="title"><b>ChatGPT</b><small>Pro, Business, Enterprise, Edu. Plus rolling out.</small></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="body">
+      <p class="who"><span class="lbl">Who can use it</span>Documented for Pro, Business, Enterprise and Edu. Plus is still rolling out, so the option may not appear yet; check your plan. On Business or Enterprise, an admin may need to enable it. Add it on chatgpt.com in a desktop browser, not the phone app.</p>
+      <ol class="steps">
+        <li>Open <a href="https://chatgpt.com/plugins" rel="noopener">chatgpt.com/plugins</a>, or click <kbd>Plugins</kbd> in the sidebar.</li>
+        <li>Click <kbd>+</kbd> and choose <kbd>Add custom MCP server</kbd>. Some accounts still show the older label <kbd>Create MCP App</kbd>; it is the same thing.</li>
+        <li>Don't see it? Look in <kbd>Settings</kbd> &rsaquo; <kbd>Security and login</kbd> for a <kbd>Developer mode</kbd> switch and turn it on if it's there. On Business or Enterprise, ask your admin.</li>
+        <li>Name it <strong>Sceen</strong>, keep the public endpoint option (not <kbd>Tunnel</kbd>), paste the server URL, and choose <kbd>OAuth</kbd> for authentication.</li>
+        <li>Accept the warning and create it. Sign in to Sceen when the window opens.</li>
+        <li>In a chat, turn on Sceen from the <kbd>+</kbd> / tools menu, or just ask.</li>
+      </ol>
+      <p class="note">Best on the web. Whether Sceen then works in the ChatGPT phone app is unconfirmed.</p>
+      <div class="actions">
+        <a class="btn" href="https://chatgpt.com/plugins" rel="noopener">Open ChatGPT<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+      </div>
+      <p class="ask"><span class="lbl">What to ask</span><q>Using my Sceen ratings, what should I watch tonight?</q></p>
+    </div>
+  </details>
+
+  <!-- 3c. Grok -->
+  <details class="client" id="grok">
+    <summary>
+      <span class="mark" aria-hidden="true">Gr</span>
+      <span class="title"><b>Grok</b><small>Add on grok.com; syncs to the phone apps.</small></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="body">
+      <p class="who"><span class="lbl">Who can use it</span>xAI's docs list no plan requirement, but the Custom option may be limited on the Free tier; check what you see. Add it on grok.com: adding from the phone app is unconfirmed.</p>
+      <ol class="steps">
+        <li>Sign in at grok.com and open <a href="https://grok.com/connectors" rel="noopener">grok.com/connectors</a>.</li>
+        <li>Click <kbd>New Connector</kbd>, then <kbd>Custom</kbd>.</li>
+        <li>Paste the server URL.</li>
+        <li>Click <kbd>Connect</kbd> and sign in to Sceen.</li>
+        <li>Start a new chat and ask.</li>
+      </ol>
+      <p class="note">Connectors are tied to your account and sync to the Grok iPhone and Android apps.</p>
+      <div class="actions">
+        <a class="btn" href="https://grok.com/connectors" rel="noopener">Open Grok<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+      </div>
+      <p class="ask"><span class="lbl">What to ask</span><q>Using my Sceen library, what should I watch tonight?</q></p>
+    </div>
+  </details>
+
+  <!-- 3d. Gemini -->
+  <details class="client" id="gemini">
+    <summary>
+      <span class="mark" aria-hidden="true">Ge</span>
+      <span class="title"><b>Gemini</b><small>Google AI Pro and Ultra, US, 18+.</small></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="body">
+      <p class="who"><span class="lbl">Who can use it</span>Google says you need to be 18+, in the US, on a personal Google Account (not work or school), with <kbd>Keep Activity</kbd> on and Gemini in English. It's available with Google AI Pro and Ultra; the free tier appears to be excluded (third-party reports), so check your plan.</p>
+      <ol class="steps">
+        <li>On a computer, go to <a href="https://gemini.google.com" rel="noopener">gemini.google.com</a> and sign in.</li>
+        <li>Make sure <kbd>Keep Activity</kbd> is on.</li>
+        <li>Open <kbd>Settings</kbd> &rsaquo; <kbd>Connected Apps</kbd>. It sits under <kbd>Personal Intelligence</kbd>.</li>
+        <li>Under <kbd>Custom apps</kbd>, click <kbd>Add a custom app</kbd>.</li>
+        <li>Paste the server URL, confirm, and sign in to Sceen.</li>
+        <li>Sceen then shows up in the Gemini phone apps too.</li>
+      </ol>
+      <p class="note">Prefer a terminal or IDE? Gemini CLI and Antigravity accept the same server URL.</p>
+      <div class="actions">
+        <a class="btn" href="https://gemini.google.com" rel="noopener">Open Gemini<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+      </div>
+      <p class="ask"><span class="lbl">What to ask</span><q>Using Sceen, recommend something on my streaming services.</q></p>
+    </div>
+  </details>
+
+  <!-- 5. FAQ -->
+  <h2 id="faq">Questions</h2>
+  <section class="card faq" aria-labelledby="faq">
+    <div class="q">
+      <h3>What can it read?</h3>
+      <p>Your ratings with scores, your watchlist, your not-interested list, the streaming services you picked, your age bracket, and a summary of your taste (genres, decades). The tools never return your email, your birth year, or other people's data.</p>
+    </div>
+    <div class="q">
+      <h3>Is it read-only?</h3>
+      <p>Yes. The connector gives the AI read tools only: there is no tool to rate, add, change or delete anything. Account actions such as deleting your account also refuse connector credentials.</p>
+    </div>
+    <div class="q">
+      <h3>Who can connect?</h3>
+      <p>People 18 or older with a birth year set in the app (<kbd>Profile</kbd> &rsaquo; <kbd>Settings</kbd>).</p>
+    </div>
+    <div class="q">
+      <h3>How do I disconnect?</h3>
+      <p>In the AI app's connector settings: Claude under <kbd>Customize</kbd> &rsaquo; <kbd>Connectors</kbd>, ChatGPT under <kbd>Plugins</kbd>, Grok at grok.com/connectors, Gemini under <kbd>Settings</kbd> &rsaquo; <kbd>Connected Apps</kbd>. The credential renews itself until you disconnect it there.</p>
+    </div>
+    <div class="q">
+      <h3>Where's the fine print?</h3>
+      <p><a href="/privacy/">Privacy Policy</a> &middot; <a href="/terms/">Terms of Service</a></p>
+    </div>
+  </section>
+
+  <footer>
+    Last checked 2026-10-22. Menus change; if a step is stale, <a href="mailto:jackgerlach1@gmail.com?subject=Connect%20page%3A%20stale%20step">tell us</a>.<br />
+    <a href="/privacy/">Privacy</a> &middot; <a href="/terms/">Terms</a> &middot; <a href="/">Sceen Legal</a>
+  </footer>
+</main>
+
+<script>
+(() => {
+  // --- Copy the server URL (clipboard API, falling back to selecting the text) ---
+  const url = document.getElementById('mcp-url');
+  const btn = document.getElementById('copy-url');
+  const selectUrl = () => {
+    const range = document.createRange();
+    range.selectNodeContents(url);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  };
+  let timer = null;
+  btn.addEventListener('click', async () => {
+    const text = url.textContent.trim();
+    let copied = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch (e) { /* fall through to the selection fallback */ }
+    if (!copied) {
+      selectUrl();
+      try { copied = document.execCommand('copy'); } catch (e) { copied = false; }
+    }
+    btn.textContent = copied ? 'Copied' : 'Selected, press copy';
+    clearTimeout(timer);
+    timer = setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+  });
+
+  // --- Client sections: collapsed on phones, all open on wider screens ---
+  const clients = document.querySelectorAll('details.client');
+  if (window.matchMedia('(min-width: 760px)').matches) {
+    clients.forEach((d) => { d.open = true; });
+  }
+  // A jump link or #hash should open the section it points at.
+  const openHash = () => {
+    const target = location.hash && document.querySelector('details.client' + location.hash);
+    if (target) target.open = true;
+  };
+  window.addEventListener('hashchange', openHash);
+  openHash();
+})();
+</script>
+</body>
+</html>
